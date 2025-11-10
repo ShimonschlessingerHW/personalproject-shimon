@@ -1,0 +1,1975 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gauss-Jordan Elimination Widget — Shimon Schlessinger</title>
+    <script src="https://cdn.jsdelivr.net/npm/decimal.js@10.4.3/decimal.min.js"></script>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #1a1a1a;
+        --muted: #666666;
+        --accent: #0066cc;
+        --border: rgba(0,0,0,0.15);
+        --nav-bg: rgba(255,255,255,0.85);
+      }
+      html, body {
+        min-height: 100%;
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+      .nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 2;
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        padding: 12px 16px;
+        background: var(--nav-bg);
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        -webkit-backdrop-filter: saturate(140%) blur(8px);
+        backdrop-filter: saturate(140%) blur(8px);
+      }
+      .tab {
+        color: var(--fg);
+        text-decoration: none;
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: background 0.2s ease;
+      }
+      .tab:hover {
+        background: rgba(0,0,0,0.06);
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 96px 24px 24px;
+      }
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: clamp(28px, 6vw, 48px);
+        text-align: center;
+      }
+      .subtitle {
+        text-align: center;
+        color: var(--muted);
+        margin: 0 0 40px 0;
+        font-size: 16px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: center;
+        margin-bottom: 32px;
+        padding: 20px;
+        background: rgba(0,0,0,0.02);
+        border-radius: 12px;
+        border: 1px solid var(--border);
+      }
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      label {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      input[type="number"] {
+        width: 60px;
+        padding: 6px 10px;
+        background: rgba(0,0,0,0.03);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--fg);
+        font-size: 14px;
+      }
+      input[type="number"]:focus {
+        outline: none;
+        border-color: var(--accent);
+        background: rgba(0,0,0,0.05);
+      }
+      button {
+        padding: 10px 20px;
+        background: var(--accent);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      button:hover {
+        background: #0052a3;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,102,204,0.3);
+      }
+      button:active {
+        transform: translateY(0);
+      }
+      .matrix-container {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        align-items: center;
+      }
+      .matrix-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+      }
+      .matrix-label {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .matrix {
+        display: inline-flex;
+        gap: 16px;
+        padding: 20px;
+        background: rgba(0,0,0,0.02);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        position: relative;
+        align-items: flex-start;
+      }
+      .matrix-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .matrix-header-label {
+        text-align: center;
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--fg);
+        margin-bottom: 8px;
+        width: 100%;
+      }
+      .vector-label {
+        position: relative;
+        display: inline-block;
+      }
+      .vector-label::before {
+        content: '→';
+        position: absolute;
+        top: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 12px;
+      }
+      .matrix-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .matrix-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .matrix-cell {
+        min-width: 85px;
+        width: auto;
+        max-width: 150px;
+        padding: 8px;
+        background: rgba(0,0,0,0.03);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        text-align: center;
+        color: var(--fg);
+        font-size: 14px;
+        font-family: 'Courier New', monospace;
+        white-space: nowrap;
+      }
+      .matrix-cell:focus {
+        outline: none;
+        border-color: var(--accent);
+        background: rgba(0,0,0,0.05);
+      }
+      .matrix-cell.readonly {
+        background: rgba(0,0,0,0.01);
+        color: var(--muted);
+        cursor: not-allowed;
+      }
+      .matrix-separator {
+        width: 2px;
+        border-left: 2px dashed var(--muted);
+        margin-top: 32px;
+        align-self: stretch;
+      }
+      .solution {
+        margin-top: 32px;
+        padding: 24px;
+        background: rgba(0,102,204,0.1);
+        border: 1px solid rgba(0,102,204,0.2);
+        border-radius: 12px;
+        text-align: center;
+      }
+      .solution h3 {
+        margin: 0 0 16px 0;
+        color: var(--accent);
+        font-size: 20px;
+      }
+      .solution-values {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+      }
+      .solution-item {
+        font-size: 16px;
+        font-family: 'Courier New', monospace;
+      }
+      .error {
+        margin-top: 24px;
+        padding: 16px;
+        background: rgba(220,50,50,0.1);
+        border: 1px solid rgba(220,50,50,0.3);
+        border-radius: 8px;
+        color: #cc3333;
+        text-align: center;
+      }
+      .operation-display {
+        margin-top: 24px;
+        padding: 16px;
+        background: rgba(0,0,0,0.03);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        text-align: center;
+        font-family: 'Courier New', monospace;
+        font-size: 16px;
+        min-height: 24px;
+      }
+      input[type="range"] {
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(0,0,0,0.1);
+        outline: none;
+        -webkit-appearance: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      input[type="range"]::-webkit-slider-thumb:hover {
+        background: #0052a3;
+        transform: scale(1.1);
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s ease;
+      }
+      input[type="range"]::-moz-range-thumb:hover {
+        background: #0052a3;
+        transform: scale(1.1);
+      }
+      .matrix-cell.highlight-target {
+        border: 2px solid #cc0000 !important;
+        background: rgba(0,102,204,0.2) !important;
+      }
+      .matrix-cell.highlight-row {
+        background: rgba(173,216,230,0.4) !important;
+      }
+      .matrix-cell.highlight-row-modified {
+        background: rgba(0,102,204,0.2) !important;
+      }
+      .matrix-cell.highlight-row-strong {
+        background: rgba(0,102,204,0.2) !important;
+        border-color: rgba(0,102,204,0.4) !important;
+      }
+      @media (max-width: 768px) {
+        .matrix-cell {
+          width: 50px;
+          padding: 6px;
+          font-size: 12px;
+        }
+        .controls {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .control-group {
+          justify-content: space-between;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="nav">
+      <a class="tab" href="index.html">Home</a>
+      <a class="tab" href="projects.html">Projects</a>
+      <a class="tab" href="about.html">About Me</a>
+    </nav>
+    <div class="container">
+      <h1>Gauss-Jordan Elimination Widget</h1>
+      <p class="subtitle">Solve systems of linear equations using Gauss-Jordan elimination</p>
+      
+      <div class="controls">
+        <div class="control-group">
+          <label for="rows">Rows:</label>
+          <input type="number" id="rows" min="1" value="3">
+        </div>
+        <div class="control-group">
+          <label for="cols">Variables:</label>
+          <input type="number" id="cols" min="1" value="3">
+        </div>
+        <div class="control-group" style="flex: 1; min-width: 200px; max-width: 400px;">
+          <label for="step-slider" style="margin-right: 8px;">Step:</label>
+          <input type="range" id="step-slider" min="0" value="0" step="1" style="flex: 1;">
+          <span id="step-counter" style="min-width: 40px; text-align: right;">0</span>
+        </div>
+        <button onclick="generateRandomMatrix()">Random</button>
+        <button onclick="resetSteps()">Reset</button>
+        <button onclick="clearMatrix()">Clear</button>
+        <button id="fractions-toggle" onclick="toggleFractionsMode()">Fractions Mode</button>
+      </div>
+
+      <div class="matrix-container">
+        <div class="matrix-wrapper">
+          <div class="matrix-label">Augmented Matrix [M | <span class="vector-label">v</span>]</div>
+          <div class="matrix" id="matrix"></div>
+        </div>
+      </div>
+
+      <div class="operation-display" id="operation-display"></div>
+      <div id="solution" style="display: none;"></div>
+      <div id="error" style="display: none;"></div>
+    </div>
+
+    <script>
+      let rows = 3;
+      let cols = 3;
+      let matrix = [];
+      let stepState = {
+        currentPivot: 0,
+        phase: 'normalize', // 'normalize', 'eliminate', 'done'
+        pivotRow: -1,
+        workingRow: -1,
+        currentStep: 0,
+        maxSteps: 0
+      };
+      let isStepping = false;
+      let originalMatrix = null;
+      let stepHistory = []; // Array to store {matrix, stepState, operation} at each step
+      let matrixChanged = false; // Track if user manually changed matrix
+      let precalculatedSteps = []; // Pre-calculated all steps for smooth slider
+      let isPrecalculating = false;
+      let isGeneratingRandom = false; // Flag to prevent solution display during random generation
+      let isInitializing = true; // Flag to prevent solution display during page initialization
+      let fractionsMode = true; // Toggle for fractions display mode (default: true)
+      let currentHighlightCell = null; // Track the cell highlighted in the current step
+      let currentHighlightRows = []; // Track the rows highlighted in the current step (light blue)
+      let currentHighlightRowsModified = []; // Track the rows highlighted as modified (darker blue)
+      let currentHighlightRowsStrong = []; // Track the rows highlighted with strong blue (for swaps)
+
+      function updateMatrix() {
+        rows = parseInt(document.getElementById('rows').value) || 3;
+        cols = parseInt(document.getElementById('cols').value) || 3;
+        
+        if (rows < 1 || cols < 1) {
+          showError('Rows and columns must be at least 1');
+          return;
+        }
+        
+        // Reset step state when matrix size changes
+        originalMatrix = null;
+        precalculatedSteps = [];
+        resetSteps();
+
+        const matrixDiv = document.getElementById('matrix');
+        
+        // Save existing values BEFORE clearing
+        // Get old column count from DOM to detect expansion
+        let oldCols = 0;
+        const savedValues = {};
+        const existingCells = matrixDiv.querySelectorAll('.matrix-cell');
+        if (existingCells.length > 0) {
+          // Find the maximum column index in the matrix section (not vector)
+          // Matrix cells have data-col from 0 to (oldCols-1)
+          // Vector cells have data-col = oldCols
+          const matrixSection = matrixDiv.querySelector('.matrix-section:first-child');
+          if (matrixSection) {
+            const matrixCells = matrixSection.querySelectorAll('.matrix-cell');
+            let maxMatrixCol = -1;
+            matrixCells.forEach(cell => {
+              const col = parseInt(cell.dataset.col);
+              if (!isNaN(col) && col > maxMatrixCol) {
+                maxMatrixCol = col;
+              }
+            });
+            // The last matrix column is at index (oldCols - 1), so oldCols = maxMatrixCol + 1
+            oldCols = maxMatrixCol + 1;
+          }
+          
+          // Save all existing values - preserve full precision
+          existingCells.forEach(cell => {
+            const row = parseInt(cell.dataset.row);
+            const col = parseInt(cell.dataset.col);
+            if (!isNaN(row) && !isNaN(col)) {
+              // Check if there's a stored full-precision value in data attribute
+              const fullPrecisionValue = cell.dataset.fullPrecision;
+              if (fullPrecisionValue !== undefined) {
+                // Use the stored full-precision value
+                savedValues[`${row}-${col}`] = fullPrecisionValue;
+              } else {
+                // Parse from the displayed value, preserving full precision
+                const val = cell.value.trim();
+                savedValues[`${row}-${col}`] = val !== '' ? val : '0';
+              }
+            }
+          });
+        }
+        
+        matrixDiv.innerHTML = '';
+        matrix = [];
+
+        // Create matrix section (M)
+        const matrixSection = document.createElement('div');
+        matrixSection.className = 'matrix-section';
+        
+        // Add "M" label centered over matrix
+        const mLabel = document.createElement('div');
+        mLabel.className = 'matrix-header-label';
+        mLabel.textContent = 'M';
+        matrixSection.appendChild(mLabel);
+        
+        // Create rows container
+        const rowsContainer = document.createElement('div');
+        rowsContainer.className = 'matrix-rows';
+        
+        // Create matrix rows
+        for (let i = 0; i < rows; i++) {
+          const row = [];
+          const rowDiv = document.createElement('div');
+          rowDiv.className = 'matrix-row';
+          
+          // Matrix cells
+          for (let j = 0; j < cols; j++) {
+            const cell = document.createElement('input');
+            cell.type = fractionsMode ? 'text' : 'number';
+            cell.className = 'matrix-cell';
+            const savedKey = `${i}-${j}`;
+            // Only use saved values for existing matrix columns (j < oldCols)
+            // New columns (j >= oldCols) should always be 0, not vector values
+            if (j < oldCols && savedValues[savedKey] !== undefined) {
+              const savedVal = savedValues[savedKey];
+              // Store full precision value
+              cell.dataset.fullPrecision = savedVal;
+              // Display formatted version
+              const dec = new Decimal(savedVal);
+              cell.value = dec.isZero() ? '' : formatNumberForDisplay(dec);
+            } else {
+              // New column or no saved value - fill with 0
+              cell.dataset.fullPrecision = '0';
+              cell.value = '0';
+            }
+            cell.placeholder = '0';
+            cell.step = 'any';
+            cell.dataset.row = i;
+            cell.dataset.col = j;
+            rowDiv.appendChild(cell);
+            row.push(0);
+          }
+          
+          rowsContainer.appendChild(rowDiv);
+          matrix.push(row);
+        }
+        
+        matrixSection.appendChild(rowsContainer);
+        matrixDiv.appendChild(matrixSection);
+        
+        // Create separator
+        const separator = document.createElement('div');
+        separator.className = 'matrix-separator';
+        matrixDiv.appendChild(separator);
+        
+        // Create vector section (v)
+        const vectorSection = document.createElement('div');
+        vectorSection.className = 'matrix-section';
+        
+        // Add "v" label centered over vector
+        const vLabel = document.createElement('div');
+        vLabel.className = 'matrix-header-label';
+        const vSpan = document.createElement('span');
+        vSpan.className = 'vector-label';
+        vSpan.textContent = 'v';
+        vLabel.appendChild(vSpan);
+        vectorSection.appendChild(vLabel);
+        
+        // Create vector rows container
+        const vectorRowsContainer = document.createElement('div');
+        vectorRowsContainer.className = 'matrix-rows';
+        
+        // Create vector rows
+        for (let i = 0; i < rows; i++) {
+          const rowDiv = document.createElement('div');
+          rowDiv.className = 'matrix-row';
+          
+          // Vector cell - always preserve existing values
+          const augCell = document.createElement('input');
+          augCell.type = fractionsMode ? 'text' : 'number';
+          augCell.className = 'matrix-cell';
+          const savedKey = `${i}-${cols}`;
+          // Preserve vector value if it exists, otherwise use saved value or empty
+          let vectorValue = null;
+          if (savedValues[savedKey] !== undefined) {
+            vectorValue = savedValues[savedKey];
+          } else {
+            // Check if there was an old vector value (oldCols was the old number of columns)
+            const oldVectorKey = oldCols > 0 ? `${i}-${oldCols}` : null;
+            if (oldVectorKey && savedValues[oldVectorKey] !== undefined) {
+              vectorValue = savedValues[oldVectorKey];
+            }
+          }
+          
+          if (vectorValue !== null) {
+            // Store full precision value
+            augCell.dataset.fullPrecision = vectorValue;
+            // Display formatted version
+            const dec = new Decimal(vectorValue);
+            augCell.value = dec.isZero() ? '' : formatNumberForDisplay(dec);
+          } else {
+            augCell.dataset.fullPrecision = '0';
+            augCell.value = '';
+          }
+          augCell.placeholder = '0';
+          augCell.step = 'any';
+          augCell.dataset.row = i;
+          augCell.dataset.col = cols;
+          rowDiv.appendChild(augCell);
+          
+          // Update matrix array
+          if (!matrix[i]) {
+            matrix[i] = [];
+          }
+          matrix[i][cols] = 0;
+          
+          vectorRowsContainer.appendChild(rowDiv);
+        }
+        
+        vectorSection.appendChild(vectorRowsContainer);
+        matrixDiv.appendChild(vectorSection);
+        
+        // Save current matrix as original and trigger precalculation
+        originalMatrix = null;
+        stepHistory = [];
+        precalculatedSteps = [];
+        matrixChanged = false;
+        resetSteps();
+        
+        // Save the current matrix state
+        const mat = getMatrixFromInputs();
+        originalMatrix = mat.map(row => row.map(val => val instanceof Decimal ? val : new Decimal(val)));
+        stepHistory[0] = {
+          matrix: originalMatrix.map(row => row.map(val => val instanceof Decimal ? val : new Decimal(val))),
+          stepState: JSON.parse(JSON.stringify(stepState))
+        };
+        
+        // Pre-calculate steps for smooth slider
+        // Always ensure at least one step exists for the slider
+        if (precalculatedSteps.length === 0) {
+          precalculatedSteps.push({
+            matrix: originalMatrix.map(row => row.map(val => val instanceof Decimal ? val : new Decimal(val))),
+            stepState: JSON.parse(JSON.stringify(stepState)),
+            operation: 'Initial matrix'
+          });
+          updateSlider();
+        }
+        setTimeout(() => {
+          try {
+            precalculateAllSteps();
+          } catch (error) {
+            console.error('Error during precalculation:', error);
+            // Ensure slider still works with at least initial step
+            if (precalculatedSteps.length === 0 && originalMatrix) {
+              precalculatedSteps.push({
+                matrix: originalMatrix.map(row => row.map(val => val instanceof Decimal ? val : new Decimal(val))),
+                stepState: JSON.parse(JSON.stringify(stepState)),
+                operation: 'Initial matrix'
+              });
+            }
+            updateSlider();
+          }
+        }, 100);
+      }
+
+      function clearMatrix() {
+        const cells = document.querySelectorAll('.matrix-cell');
+        cells.forEach(cell => {
+          cell.value = '';
+        });
+        document.getElementById('solution').style.display = 'none';
+        document.getElementById('error').style.display = 'none';
+        document.getElementById('operation-display').textContent = '';
+        originalMatrix = null;
+        stepHistory = [];
+        matrixChanged = false;
+        resetSteps();
+      }
+
+      function generateRandomMatrix() {
+        isGeneratingRandom = true;
+        
+        // Hide solution immediately
+        const solutionDiv = document.getElementById('solution');
+        if (solutionDiv) {
+          solutionDiv.style.display = 'none';
+        }
+        
+        // Get current matrix dimensions from DOM
+        const currentRows = parseInt(document.getElementById('rows').value) || 3;
+        const currentCols = parseInt(document.getElementById('cols').value) || 3;
+        
+        // Ensure matrix structure exists and matches current dimensions
+        if (rows !== currentRows || cols !== currentCols) {
+          rows = currentRows;
+          cols = currentCols;
+          updateMatrix();
+        } else if (document.getElementById('matrix').children.length === 0) {
+          updateMatrix();
+        }
+        
+        // Step 1: Generate random integer solutions (x values) first
+        const solutions = [];
+        for (let j = 0; j < cols; j++) {
+          solutions.push(Math.floor(Math.random() * 21) - 10); // Random integer between -10 and 10
+        }
+        
+        // Step 2: Generate random coefficient matrix M (integers)
+        const M = [];
+        for (let i = 0; i < rows; i++) {
+          const row = [];
+          for (let j = 0; j < cols; j++) {
+            // Random integer between -5 and 5 (zeros are allowed)
+            row.push(Math.floor(Math.random() * 11) - 5);
+          }
+          M.push(row);
+        }
+        
+        // Step 3: Calculate vector v = M * solutions (back-multiply)
+        // This ensures the system Mx = v has integer solutions
+        const v = [];
+        for (let i = 0; i < rows; i++) {
+          let sum = new Decimal(0);
+          for (let j = 0; j < cols; j++) {
+            const mVal = new Decimal(M[i][j]);
+            const solVal = new Decimal(solutions[j]);
+            sum = sum.plus(mVal.times(solVal));
+          }
+          v.push(sum);
+        }
+        
+        // Step 4: Update the matrix display - ensure all cells are filled
+        for (let i = 0; i < rows; i++) {
+          // Set matrix coefficients
+          for (let j = 0; j < cols; j++) {
+            const cell = document.querySelector(`[data-row="${i}"][data-col="${j}"]`);
+            if (cell) {
+              const mVal = new Decimal(M[i][j]);
+              // Store full precision
+              cell.dataset.fullPrecision = mVal.toString();
+              // Display formatted version
+              cell.value = mVal.toString();
+            } else {
+              console.error(`Cell not found: row ${i}, col ${j}`);
+            }
+          }
+          // Set vector value (augmented column)
+          const vectorCell = document.querySelector(`[data-row="${i}"][data-col="${cols}"]`);
+          if (vectorCell) {
+            // v[i] is guaranteed to be an integer since M and solutions are integers
+            const vecVal = v[i];
+            // Store full precision
+            vectorCell.dataset.fullPrecision = vecVal.toString();
+            // Display formatted version
+            if (vecVal.isInteger()) {
+              const vecStr = vecVal.toString();
+              vectorCell.value = vecStr === '-0' ? '0' : vecStr;
+            } else {
+              const vecStr = vecVal.toFixed(0);
+              vectorCell.value = vecStr === '-0' ? '0' : vecStr;
+            }
+          } else {
+            console.error(`Vector cell not found: row ${i}, col ${cols}`);
+          }
+        }
+        
+        // Trigger input events to ensure values are properly registered
+        const allCells = document.querySelectorAll('.matrix-cell');
+        allCells.forEach(cell => {
+          cell.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        
+        // Reset state
+        originalMatrix = null;
+        stepHistory = [];
+        precalculatedSteps = [];
+        matrixChanged = false;
+        resetSteps();
+        
+        // Save as new original - get the matrix with Decimal values
+        const mat = getMatrixFromInputs();
+        originalMatrix = mat.map(row => row.map(val => val instanceof Decimal ? val : new Decimal(val)));
+        stepHistory[0] = {
+          matrix: originalMatrix.map(row => row.map(val => val instanceof Decimal ? val : new Decimal(val))),
+          stepState: JSON.parse(JSON.stringify(stepState))
+        };
+        
+        // Ensure solution is hidden
+        if (solutionDiv) {
+          solutionDiv.style.display = 'none';
+        }
+        
+        // Pre-calculate steps for smooth slider
+        setTimeout(() => {
+          precalculateAllSteps();
+          isGeneratingRandom = false; // Allow solution checks after precalculation
+        }, 100);
+      }
+
+      function resetSteps() {
+        stepState = {
+          currentPivot: 0,
+          phase: 'normalize',
+          pivotRow: -1,
+          workingRow: -1,
+          currentStep: 0,
+          maxSteps: 0
+        };
+        stepHistory = [];
+        precalculatedSteps = [];
+        clearHighlights();
+        document.getElementById('operation-display').textContent = '';
+        document.getElementById('solution').style.display = 'none';
+        document.getElementById('error').style.display = 'none';
+        // Restore original matrix if we have it
+        if (originalMatrix) {
+          updateMatrixDisplay(originalMatrix);
+          stepHistory[0] = {
+            matrix: originalMatrix.map(row => [...row]),
+            stepState: JSON.parse(JSON.stringify(stepState))
+          };
+        }
+        updateSlider();
+      }
+
+      function updateSlider() {
+        const slider = document.getElementById('step-slider');
+        const counter = document.getElementById('step-counter');
+        if (slider) {
+          const maxSteps = precalculatedSteps.length > 0 ? precalculatedSteps.length - 1 : 0;
+          slider.max = maxSteps;
+          slider.value = Math.min(stepState.currentStep, maxSteps);
+          stepState.maxSteps = maxSteps;
+        }
+        if (counter) {
+          counter.textContent = stepState.currentStep;
+        }
+      }
+
+      function precalculateAllSteps() {
+        if (isPrecalculating) return;
+        isPrecalculating = true;
+        
+        // Save current state
+        const savedState = JSON.parse(JSON.stringify(stepState));
+        const savedMatrix = cloneMatrix(getMatrixFromInputs());
+        
+        // Reset to beginning
+        stepState = {
+          currentPivot: 0,
+          phase: 'normalize',
+          pivotRow: -1,
+          workingRow: -1,
+          currentStep: 0,
+          maxSteps: 0
+        };
+        
+        // Start with original matrix
+        if (originalMatrix) {
+          updateMatrixDisplay(originalMatrix);
+        } else {
+          originalMatrix = cloneMatrix(savedMatrix);
+          updateMatrixDisplay(originalMatrix);
+        }
+        
+        precalculatedSteps = [];
+        precalculatedSteps.push({
+          matrix: cloneMatrix(originalMatrix),
+          stepState: JSON.parse(JSON.stringify(stepState)),
+          operation: 'Initial matrix',
+          highlightCell: null, // No highlight for initial state
+          highlightRows: [], // No rows highlighted for initial state
+          highlightRowsModified: [], // No modified rows highlighted for initial state
+          highlightRowsStrong: [] // No strong rows highlighted for initial state
+        });
+        
+        // Pre-calculate all steps
+        let stepCount = 0;
+        const maxIterations = rows * cols * 10; // Safety limit
+        let iterations = 0;
+        
+        while (iterations < maxIterations) {
+          iterations++;
+          const beforeStep = cloneMatrix(getMatrixFromInputs());
+          const beforeState = JSON.parse(JSON.stringify(stepState));
+          const beforeOperation = document.getElementById('operation-display').textContent;
+          
+          // Reset highlight tracking for this step
+          currentHighlightCell = null;
+          currentHighlightRows = [];
+          currentHighlightRowsModified = [];
+          currentHighlightRowsStrong = [];
+          
+          const done = stepGaussJordan();
+          stepCount++;
+          stepState.currentStep = stepCount;
+          
+          const afterMatrix = cloneMatrix(getMatrixFromInputs());
+          const afterState = JSON.parse(JSON.stringify(stepState));
+          const afterOperation = document.getElementById('operation-display').textContent;
+          
+          // Check if matrix actually changed
+          let matrixChanged = false;
+          for (let i = 0; i < beforeStep.length; i++) {
+            for (let j = 0; j < beforeStep[i].length; j++) {
+              const beforeVal = beforeStep[i][j] instanceof Decimal ? beforeStep[i][j] : new Decimal(beforeStep[i][j]);
+              const afterVal = afterMatrix[i][j] instanceof Decimal ? afterMatrix[i][j] : new Decimal(afterMatrix[i][j]);
+              if (!beforeVal.equals(afterVal)) {
+                matrixChanged = true;
+                break;
+              }
+            }
+            if (matrixChanged) break;
+          }
+          
+          if (matrixChanged || done) {
+            // Use the tracked highlight cell and rows from step execution
+            precalculatedSteps.push({
+              matrix: cloneMatrix(afterMatrix),
+              stepState: JSON.parse(JSON.stringify(afterState)),
+              operation: afterOperation || `Step ${stepCount}`,
+              highlightCell: currentHighlightCell, // Use the cell that was actually highlighted
+              highlightRows: [...currentHighlightRows], // Use the rows that were actually highlighted (light blue)
+              highlightRowsModified: [...currentHighlightRowsModified], // Use the rows that were modified (darker blue)
+              highlightRowsStrong: [...currentHighlightRowsStrong] // Use the rows with strong highlighting
+            });
+          }
+          
+          if (done) {
+            break;
+          }
+          
+          // Check if we're stuck (no progress)
+          const n = rows;
+          const m = cols;
+          const pivot = stepState.currentPivot;
+          if (pivot >= Math.min(n, m) && stepState.phase === 'normalize') {
+            break;
+          }
+        }
+        
+        // Restore original state
+        stepState = savedState;
+        updateMatrixDisplay(savedMatrix);
+        document.getElementById('operation-display').textContent = '';
+        clearHighlights();
+        
+        isPrecalculating = false;
+        updateSlider();
+      }
+
+      function goToStep(targetStep) {
+        if (isStepping || isPrecalculating) return;
+        
+        // Ensure we have pre-calculated steps
+        if (precalculatedSteps.length === 0) {
+          // Save original matrix first
+          if (originalMatrix === null) {
+            originalMatrix = cloneMatrix(getMatrixFromInputs());
+          }
+          precalculateAllSteps();
+        }
+        
+        // Clamp target step to valid range
+        targetStep = Math.max(0, Math.min(targetStep, precalculatedSteps.length - 1));
+        
+        // Restore from pre-calculated steps
+        if (precalculatedSteps[targetStep]) {
+          const stepData = precalculatedSteps[targetStep];
+          updateMatrixDisplay(stepData.matrix);
+          stepState = JSON.parse(JSON.stringify(stepData.stepState));
+          stepState.currentStep = targetStep;
+          document.getElementById('operation-display').textContent = stepData.operation || '';
+          clearHighlights();
+          
+          // Restore highlight for the target cell and rows if stored
+          if (targetStep > 0 && stepData.highlightCell) {
+            highlightTargetCell(stepData.highlightCell.row, stepData.highlightCell.col);
+          }
+          if (targetStep > 0 && stepData.highlightRowsStrong && stepData.highlightRowsStrong.length > 0) {
+            stepData.highlightRowsStrong.forEach(rowIndex => {
+              highlightRowStrong(rowIndex);
+            });
+          }
+          if (targetStep > 0 && stepData.highlightRowsModified && stepData.highlightRowsModified.length > 0) {
+            stepData.highlightRowsModified.forEach(rowIndex => {
+              highlightRowModified(rowIndex);
+            });
+          }
+          if (targetStep > 0 && stepData.highlightRows && stepData.highlightRows.length > 0) {
+            stepData.highlightRows.forEach(rowIndex => {
+              // Only highlight if not already highlighted as modified or strong
+              if ((!stepData.highlightRowsModified || !stepData.highlightRowsModified.includes(rowIndex)) &&
+                  (!stepData.highlightRowsStrong || !stepData.highlightRowsStrong.includes(rowIndex))) {
+                highlightRow(rowIndex);
+              }
+            });
+          }
+          
+          updateSlider();
+          // Check and display determined variables at this step (but not at step 0)
+          if (targetStep > 0) {
+            checkSolution();
+          } else {
+            // Hide solution at step 0 (initial state)
+            const solutionDiv = document.getElementById('solution');
+            if (solutionDiv) {
+              solutionDiv.style.display = 'none';
+            }
+          }
+        }
+      }
+
+      function clearHighlights() {
+        const cells = document.querySelectorAll('.matrix-cell');
+        cells.forEach(cell => {
+          cell.classList.remove('highlight-target', 'highlight-row', 'highlight-row-modified', 'highlight-row-strong');
+        });
+      }
+
+      function highlightTargetCell(rowIndex, colIndex) {
+        const cell = document.querySelector(`[data-row="${rowIndex}"][data-col="${colIndex}"]`);
+        if (cell) {
+          cell.classList.add('highlight-target');
+        }
+        // Track the highlighted cell for precalculation
+        if (isPrecalculating) {
+          currentHighlightCell = { row: rowIndex, col: colIndex };
+        }
+      }
+
+      function highlightRow(rowIndex) {
+        // Highlight all cells in the row with light blue (for rows used in operations)
+        for (let j = 0; j <= cols; j++) {
+          const cell = document.querySelector(`[data-row="${rowIndex}"][data-col="${j}"]`);
+          if (cell) {
+            cell.classList.add('highlight-row');
+          }
+        }
+        // Track the highlighted row for precalculation
+        if (isPrecalculating && !currentHighlightRows.includes(rowIndex)) {
+          currentHighlightRows.push(rowIndex);
+        }
+      }
+
+      function highlightRowModified(rowIndex) {
+        // Highlight all cells in the row with darker blue (for the row being modified)
+        for (let j = 0; j <= cols; j++) {
+          const cell = document.querySelector(`[data-row="${rowIndex}"][data-col="${j}"]`);
+          if (cell) {
+            cell.classList.add('highlight-row-modified');
+          }
+        }
+        // Track the highlighted row for precalculation
+        if (isPrecalculating && !currentHighlightRowsModified.includes(rowIndex)) {
+          currentHighlightRowsModified.push(rowIndex);
+        }
+      }
+
+      function highlightRowStrong(rowIndex) {
+        // Highlight all cells in the row with stronger blue (for row swaps)
+        for (let j = 0; j <= cols; j++) {
+          const cell = document.querySelector(`[data-row="${rowIndex}"][data-col="${j}"]`);
+          if (cell) {
+            cell.classList.add('highlight-row-strong');
+          }
+        }
+        // Track the highlighted row for precalculation
+        if (isPrecalculating && !currentHighlightRowsStrong.includes(rowIndex)) {
+          currentHighlightRowsStrong.push(rowIndex);
+        }
+      }
+
+      function cloneMatrix(mat) {
+        // Deep clone matrix, ensuring Decimal objects are properly cloned
+        return mat.map(row => row.map(val => {
+          if (val instanceof Decimal) {
+            return new Decimal(val);
+          } else {
+            return new Decimal(val);
+          }
+        }));
+      }
+
+      function getMatrixFromInputs() {
+        const newMatrix = [];
+        
+        for (let i = 0; i < rows; i++) {
+          const row = [];
+          for (let j = 0; j <= cols; j++) {
+            const cell = document.querySelector(`[data-row="${i}"][data-col="${j}"]`);
+            if (cell) {
+              // ALWAYS use stored full-precision value - never parse the displayed value
+              // This ensures fractions mode doesn't affect calculations
+              const fullPrecisionValue = cell.dataset.fullPrecision;
+              let value;
+              if (fullPrecisionValue !== undefined && fullPrecisionValue !== '') {
+                // Use stored full-precision value
+                value = new Decimal(fullPrecisionValue);
+              } else {
+                // Fallback: parse from displayed value only if fullPrecision is not set
+                // But try to avoid parsing fraction strings
+                const valueStr = cell.value.trim();
+                if (valueStr === '') {
+                  value = new Decimal(0);
+                } else if (valueStr.includes('/')) {
+                  // If it's a fraction string, we can't parse it - use 0 or try to evaluate
+                  // This shouldn't happen if fullPrecision is always set, but handle it
+                  const parts = valueStr.split('/');
+                  if (parts.length === 2) {
+                    const num = new Decimal(parts[0].trim());
+                    const den = new Decimal(parts[1].trim());
+                    value = num.dividedBy(den);
+                  } else {
+                    value = new Decimal(0);
+                  }
+                } else {
+                  value = new Decimal(valueStr);
+                }
+                // Store the full precision value for future reads
+                cell.dataset.fullPrecision = value.toString();
+              }
+              row.push(value);
+            } else {
+              row.push(new Decimal(0));
+            }
+          }
+          newMatrix.push(row);
+        }
+        
+        return newMatrix;
+      }
+
+      function updateMatrixDisplay(mat) {
+        for (let i = 0; i < rows; i++) {
+          for (let j = 0; j <= cols; j++) {
+            const cell = document.querySelector(`[data-row="${i}"][data-col="${j}"]`);
+            if (cell) {
+              const value = mat[i][j];
+              const dec = value instanceof Decimal ? value : new Decimal(value);
+              
+              // ALWAYS store the full-precision Decimal value in data attribute
+              // This is the source of truth for calculations
+              const fullPrecisionStr = dec.toString();
+              cell.dataset.fullPrecision = fullPrecisionStr;
+              
+              // Change input type based on fractions mode
+              cell.type = fractionsMode ? 'text' : 'number';
+              
+              // Display formatted version (decimal or fraction) - this is ONLY for display
+              if (dec.isZero()) {
+                cell.value = '';
+              } else {
+                cell.value = formatNumberForDisplay(dec);
+              }
+            }
+          }
+        }
+      }
+
+      function gaussJordanElimination(mat) {
+        const n = mat.length;
+        const m = mat[0].length - 1; // number of variables
+        
+        // Forward elimination
+        for (let i = 0; i < Math.min(n, m); i++) {
+          // Find pivot
+          let maxRow = i;
+          for (let k = i + 1; k < n; k++) {
+            if (Math.abs(mat[k][i]) > Math.abs(mat[maxRow][i])) {
+              maxRow = k;
+            }
+          }
+          
+          // Swap rows
+          [mat[i], mat[maxRow]] = [mat[maxRow], mat[i]];
+          
+          // Check if pivot is zero
+          if (Math.abs(mat[i][i]) < 1e-10) {
+            continue;
+          }
+          
+          // Make pivot 1
+          const pivot = mat[i][i];
+          for (let j = i; j < m + 1; j++) {
+            mat[i][j] /= pivot;
+          }
+          
+          // Eliminate column
+          for (let k = 0; k < n; k++) {
+            if (k !== i) {
+              const factor = mat[k][i];
+              for (let j = i; j < m + 1; j++) {
+                mat[k][j] -= factor * mat[i][j];
+              }
+            }
+          }
+        }
+        
+        return mat;
+      }
+
+      function stepGaussJordan() {
+        document.getElementById('error').style.display = 'none';
+        if (!isStepping && !isPrecalculating) {
+          clearHighlights();
+        }
+        
+        const mat = getMatrixFromInputs();
+        const n = rows;
+        const m = cols;
+        const pivot = stepState.currentPivot;
+        
+        // Check if we're done
+        if (pivot >= Math.min(n, m)) {
+          document.getElementById('operation-display').textContent = 'Complete! Matrix is in reduced row echelon form.';
+          checkSolution(); // Show all determined variables
+          stepState.currentStep = stepState.maxSteps;
+          updateSlider();
+          return true; // Indicate completion
+        }
+        
+        // Check for newly determined variables after each step
+        if (!isPrecalculating) {
+          checkSolution();
+        }
+        
+        // Phase 1: Find pivot row and swap if needed
+        if (stepState.phase === 'normalize') {
+          let maxRow = pivot;
+          for (let k = pivot + 1; k < n; k++) {
+            const kVal = mat[k][pivot] instanceof Decimal ? mat[k][pivot] : new Decimal(mat[k][pivot]);
+            const maxVal = mat[maxRow][pivot] instanceof Decimal ? mat[maxRow][pivot] : new Decimal(mat[maxRow][pivot]);
+            if (kVal.abs().greaterThan(maxVal.abs())) {
+              maxRow = k;
+            }
+          }
+          
+          // Swap if needed
+          if (maxRow !== pivot) {
+            // Swap rows
+            for (let j = 0; j <= m; j++) {
+              [mat[pivot][j], mat[maxRow][j]] = [mat[maxRow][j], mat[pivot][j]];
+            }
+            
+            // Highlight both rows involved in the swap with the stronger blue
+            highlightRowStrong(pivot);
+            highlightRowStrong(maxRow);
+            displayOperation(`R${toSubscript(pivot + 1)} ↔ R${toSubscript(maxRow + 1)}`, [pivot, maxRow], []);
+            updateMatrixDisplay(mat);
+            stepState.phase = 'normalize';
+            stepState.currentPivot = pivot;
+            return false; // Not done yet
+          }
+          
+          // Check if pivot is zero
+          const pivotVal = mat[pivot][pivot] instanceof Decimal ? mat[pivot][pivot] : new Decimal(mat[pivot][pivot]);
+          if (pivotVal.isZero()) {
+            stepState.currentPivot++;
+            return stepGaussJordan();
+          }
+          
+          // Normalize pivot row
+          const pivotValue = pivotVal;
+          const one = new Decimal(1);
+          if (!pivotValue.equals(one)) {
+            for (let j = pivot; j <= m; j++) {
+              const val = mat[pivot][j] instanceof Decimal ? mat[pivot][j] : new Decimal(mat[pivot][j]);
+              mat[pivot][j] = val.dividedBy(pivotValue);
+            }
+            // Highlight the diagonal cell being made into 1
+            highlightTargetCell(pivot, pivot);
+            // Highlight the row being normalized (modified row)
+            highlightRowModified(pivot);
+            
+            // Format the operation: if dividing by integer, show division; if by fraction, show multiplication by reciprocal
+            let operationStr;
+            if (pivotValue.isInteger()) {
+              // Dividing by integer: R2 = R2 / 5
+              const pivotStr = pivotValue.toString();
+              operationStr = `R${toSubscript(pivot + 1)} = R${toSubscript(pivot + 1)} / ${pivotStr === '-0' ? '0' : pivotStr}`;
+            } else {
+              // Dividing by fraction: R2 = (5/3) * R2 (multiply by reciprocal)
+              const reciprocal = one.dividedBy(pivotValue);
+              let reciprocalStr;
+              
+              if (fractionsMode) {
+                // Format reciprocal as fraction/integer in fraction mode
+                const reciprocalFraction = decimalToFraction(reciprocal, 100000);
+                const recNumDec = reciprocalFraction.numerator;
+                const recDenDec = reciprocalFraction.denominator;
+                
+                const recFractionValue = recNumDec.dividedBy(recDenDec);
+                const recError = reciprocal.minus(recFractionValue).abs();
+                const epsilon = new Decimal(1e-8);
+                
+                if (recDenDec.equals(1)) {
+                  reciprocalStr = recNumDec.toString();
+                } else if (recError.lessThan(epsilon) && recDenDec.lessThanOrEqualTo(10000)) {
+                  const recNumInt = recNumDec.toNumber();
+                  const recDenInt = recDenDec.toNumber();
+                  if (recNumInt < 0) {
+                    reciprocalStr = `-${Math.abs(recNumInt)}/${recDenInt}`;
+                  } else {
+                    reciprocalStr = `${recNumInt}/${recDenInt}`;
+                  }
+                } else {
+                  // Fallback: convert decimal to fraction
+                  const decimalStr = reciprocal.toFixed(10);
+                  const parts = decimalStr.split('.');
+                  if (parts.length === 2) {
+                    const whole = parts[0];
+                    const decimal = parts[1].replace(/0+$/, '');
+                    if (decimal.length > 0 && decimal.length <= 10) {
+                      const num = parseInt(whole + decimal, 10);
+                      const den = Math.pow(10, decimal.length);
+                      const gcd = findGCD(Math.abs(num), den);
+                      reciprocalStr = `${num / gcd}/${den / gcd}`;
+                    } else {
+                      reciprocalStr = whole;
+                    }
+                  } else {
+                    reciprocalStr = reciprocal.toString();
+                  }
+                }
+              } else {
+                // Decimal mode: show as decimal
+                if (reciprocal.isInteger()) {
+                  const recStr = reciprocal.toString();
+                  reciprocalStr = recStr === '-0' ? '0' : recStr;
+                } else {
+                  const recStr = reciprocal.toFixed(4).replace(/\.?0+$/, '');
+                  reciprocalStr = recStr === '-0' ? '0' : recStr;
+                }
+              }
+              operationStr = `R${toSubscript(pivot + 1)} = ${reciprocalStr} * R${toSubscript(pivot + 1)}`;
+            }
+            
+            displayOperation(operationStr, [pivot], []);
+            updateMatrixDisplay(mat);
+            stepState.phase = 'eliminate';
+            stepState.pivotRow = pivot;
+            stepState.workingRow = 0;
+            return false; // Not done yet
+          } else {
+            // Already normalized, move to elimination
+            stepState.phase = 'eliminate';
+            stepState.pivotRow = pivot;
+            stepState.workingRow = 0;
+          }
+        }
+        
+        // Phase 2: Eliminate column
+        if (stepState.phase === 'eliminate') {
+          const pivotRow = stepState.pivotRow;
+          let workingRow = stepState.workingRow;
+          
+          // Skip the pivot row itself
+          if (workingRow === pivotRow) {
+            workingRow++;
+          }
+          
+          if (workingRow >= n) {
+            // Done with this pivot, move to next
+            stepState.currentPivot++;
+            stepState.phase = 'normalize';
+            return stepGaussJordan();
+          }
+          
+          const factor = mat[workingRow][pivot] instanceof Decimal ? mat[workingRow][pivot] : new Decimal(mat[workingRow][pivot]);
+          if (!factor.isZero()) {
+            // Perform elimination: R_working = R_working - factor * R_pivot
+            for (let j = pivot; j <= m; j++) {
+              const workingVal = mat[workingRow][j] instanceof Decimal ? mat[workingRow][j] : new Decimal(mat[workingRow][j]);
+              const pivotVal = mat[pivotRow][j] instanceof Decimal ? mat[pivotRow][j] : new Decimal(mat[pivotRow][j]);
+              mat[workingRow][j] = workingVal.minus(factor.times(pivotVal));
+            }
+            
+            // Highlight the cell being made into 0 (workingRow, pivot)
+            highlightTargetCell(workingRow, pivot);
+            // Highlight the row being modified (workingRow) with darker blue
+            highlightRowModified(workingRow);
+            // Highlight the pivot row used in the operation with light blue
+            highlightRow(pivotRow);
+            const negFactor = factor.negated();
+            const sign = negFactor.greaterThanOrEqualTo(0) ? ' + ' : ' - ';
+            const absFactor = negFactor.abs();
+            
+            // Format based on mode: fractions in fraction mode, decimals in decimal mode
+            let absFactorStr;
+            if (fractionsMode) {
+              // Always format as fraction/integer for operation display in fraction mode
+              const absFactorFraction = decimalToFraction(absFactor, 100000);
+              const numDec = absFactorFraction.numerator;
+              const denDec = absFactorFraction.denominator;
+              
+              // Check if the fraction is a good approximation (use more lenient epsilon)
+              const fractionValue = numDec.dividedBy(denDec);
+              const error = absFactor.minus(fractionValue).abs();
+              const epsilon = new Decimal(1e-8);
+              
+              if (denDec.equals(1)) {
+                absFactorStr = numDec.toString();
+              } else if (error.lessThan(epsilon) && denDec.lessThanOrEqualTo(10000)) {
+                // Good fraction approximation - use it
+                const numInt = numDec.toNumber();
+                const denInt = denDec.toNumber();
+                if (numInt < 0) {
+                  absFactorStr = `-${Math.abs(numInt)}/${denInt}`;
+                } else {
+                  absFactorStr = `${numInt}/${denInt}`;
+                }
+              } else {
+                // Fraction not exact enough - convert decimal to fraction
+                const decimalStr = absFactor.toFixed(12);
+                const parts = decimalStr.split('.');
+                if (parts.length === 2) {
+                  const whole = parts[0];
+                  const decimal = parts[1].replace(/0+$/, '');
+                  if (decimal.length > 0 && decimal.length <= 12) {
+                    const num = parseInt(whole + decimal, 10);
+                    const den = Math.pow(10, decimal.length);
+                    const gcd = findGCD(Math.abs(num), den);
+                    const simplifiedNum = num / gcd;
+                    const simplifiedDen = den / gcd;
+                    absFactorStr = `${simplifiedNum}/${simplifiedDen}`;
+                  } else if (whole !== '0') {
+                    absFactorStr = whole;
+                  } else {
+                    // Last resort: use decimal representation as fraction
+                    const lastResort = absFactor.toFixed(10);
+                    const lastParts = lastResort.split('.');
+                    if (lastParts.length === 2 && lastParts[1]) {
+                      const lastNum = parseInt(lastParts[0] + lastParts[1], 10);
+                      const lastDen = Math.pow(10, lastParts[1].length);
+                      const lastGcd = findGCD(Math.abs(lastNum), lastDen);
+                      absFactorStr = `${lastNum / lastGcd}/${lastDen / lastGcd}`;
+                    } else {
+                      absFactorStr = lastParts[0];
+                    }
+                  }
+                } else {
+                  absFactorStr = absFactor.toString();
+                }
+              }
+            } else {
+              // Decimal mode: show as decimal
+              if (absFactor.isInteger()) {
+                const absStr = absFactor.toString();
+                absFactorStr = absStr === '-0' ? '0' : absStr;
+              } else {
+                const absStr = absFactor.toFixed(4).replace(/\.?0+$/, '');
+                absFactorStr = absStr === '-0' ? '0' : absStr;
+              }
+            }
+            
+            // Don't write "1*" - it's redundant
+            const isOne = absFactor.equals(1);
+            const factorPart = isOne ? '' : `${absFactorStr}*`;
+            displayOperation(`R${toSubscript(workingRow + 1)} = R${toSubscript(workingRow + 1)}${sign}${factorPart}R${toSubscript(pivotRow + 1)}`, [workingRow], [pivotRow]);
+            updateMatrixDisplay(mat);
+            stepState.workingRow = workingRow + 1;
+            return false; // Not done yet
+          } else {
+            // Factor is zero, skip this row
+            stepState.workingRow = workingRow + 1;
+            return stepGaussJordan();
+          }
+        }
+        return false;
+      }
+
+      function formatNumber(num) {
+        // For operations display - use more precision
+        const dec = num instanceof Decimal ? num : new Decimal(num);
+        if (dec.isZero()) return '0';
+        
+        if (fractionsMode) {
+          const fraction = decimalToFraction(dec);
+          
+          // Get numerator and denominator as integers (not Decimal objects)
+          const numInt = fraction.numerator.toNumber();
+          const denInt = fraction.denominator.toNumber();
+          
+          if (denInt === 1) {
+            return numInt.toString();
+          }
+          
+          // Format as fraction string "a/b" with proper negative sign handling
+          if (numInt < 0) {
+            return `-${Math.abs(numInt)}/${denInt}`;
+          }
+          return `${numInt}/${denInt}`;
+        }
+        
+        // Decimal mode
+        if (dec.isInteger()) {
+          const result = dec.toString();
+          // Replace "-0" with "0" in decimal mode
+          return result === '-0' ? '0' : result;
+        }
+        // Use up to 4 decimal places, remove trailing zeros
+        const result = dec.toFixed(4).replace(/\.?0+$/, '');
+        // Replace "-0" with "0" in decimal mode
+        return result === '-0' ? '0' : result;
+      }
+
+      function findGCD(a, b) {
+        while (b !== 0) {
+          const temp = b;
+          b = a % b;
+          a = temp;
+        }
+        return a;
+      }
+
+      function decimalToFraction(dec, maxDenominator = 10000) {
+        // Convert Decimal to fraction using continued fractions
+        if (dec.isZero()) {
+          return { numerator: new Decimal(0), denominator: new Decimal(1) };
+        }
+        if (dec.isInteger()) {
+          return { numerator: dec, denominator: new Decimal(1) };
+        }
+        
+        const sign = dec.isNegative() ? new Decimal(-1) : new Decimal(1);
+        const absDec = dec.abs();
+        
+        // Continued fraction algorithm
+        // Initialize: h_{-2} = 0, h_{-1} = 1, k_{-2} = 1, k_{-1} = 0
+        let hPrev2 = new Decimal(0), hPrev1 = new Decimal(1);
+        let kPrev2 = new Decimal(1), kPrev1 = new Decimal(0);
+        
+        let x = absDec;
+        const maxIterations = 20;
+        let iterations = 0;
+        
+        while (iterations < maxIterations) {
+          const a = x.floor();
+          const hCurr = a.times(hPrev1).plus(hPrev2);
+          const kCurr = a.times(kPrev1).plus(kPrev2);
+          
+          // Check if denominator exceeds limit
+          if (kCurr.greaterThan(maxDenominator)) {
+            // Use previous convergent
+            break;
+          }
+          
+          // Update for next iteration
+          hPrev2 = hPrev1;
+          hPrev1 = hCurr;
+          kPrev2 = kPrev1;
+          kPrev1 = kCurr;
+          
+          // Check if we've converged
+          const remainder = x.minus(a);
+          if (remainder.isZero() || remainder.abs().lessThan(new Decimal(1e-15))) {
+            break;
+          }
+          
+          // Next iteration: take reciprocal of remainder
+          x = new Decimal(1).dividedBy(remainder);
+          iterations++;
+        }
+        
+        return {
+          numerator: sign.times(hPrev1),
+          denominator: kPrev1
+        };
+      }
+
+      function formatNumberForDisplay(num) {
+        const dec = num instanceof Decimal ? num : new Decimal(num);
+        if (dec.isZero()) return '';
+        
+        if (fractionsMode) {
+          const fraction = decimalToFraction(dec);
+          
+          // Get numerator and denominator as integers (not Decimal objects)
+          const numInt = fraction.numerator.toNumber();
+          const denInt = fraction.denominator.toNumber();
+          
+          if (denInt === 1) {
+            return numInt.toString();
+          }
+          
+          // Format as fraction string "a/b" with proper negative sign handling
+          if (numInt < 0) {
+            return `-${Math.abs(numInt)}/${denInt}`;
+          }
+          return `${numInt}/${denInt}`;
+        }
+        
+        // Decimal mode
+        if (dec.isInteger()) {
+          const result = dec.toString();
+          // Replace "-0" with "0" in decimal mode
+          return result === '-0' ? '0' : result;
+        }
+        // Use up to 2 decimal places, remove trailing zeros
+        const result = dec.toFixed(2).replace(/\.?0+$/, '');
+        // Replace "-0" with "0" in decimal mode
+        return result === '-0' ? '0' : result;
+      }
+      
+      function toggleFractionsMode() {
+        fractionsMode = !fractionsMode;
+        updateFractionsButton();
+        
+        // Update all input field types
+        const allCells = document.querySelectorAll('.matrix-cell');
+        allCells.forEach(cell => {
+          cell.type = fractionsMode ? 'text' : 'number';
+        });
+        
+        // Get current matrix from stored full-precision values (not from displayed values)
+        const mat = getMatrixFromInputs();
+        // Update display only - this will show fractions/decimal but keep fullPrecision unchanged
+        updateMatrixDisplay(mat);
+        // Update solution if visible
+        const solutionDiv = document.getElementById('solution');
+        if (solutionDiv.style.display !== 'none') {
+          checkSolution();
+        }
+      }
+      
+      function updateFractionsButton() {
+        const button = document.getElementById('fractions-toggle');
+        if (button) {
+          if (fractionsMode) {
+            button.textContent = 'Fractions Mode';
+            button.style.backgroundColor = 'var(--accent)';
+            button.style.color = 'white';
+          } else {
+            button.textContent = 'Decimal Mode';
+            button.style.backgroundColor = '';
+            button.style.color = '';
+          }
+        }
+      }
+
+      function toSubscript(num) {
+        const subscripts = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'];
+        return num.toString().split('').map(d => subscripts[parseInt(d)]).join('');
+      }
+
+
+      function displayOperation(operation, activeRows, dependentRows) {
+        const display = document.getElementById('operation-display');
+        display.innerHTML = operation;
+      }
+
+      function checkSolution() {
+        // Don't show solution if we're generating random or initializing
+        if (isGeneratingRandom || isInitializing) {
+          return;
+        }
+        
+        const mat = getMatrixFromInputs();
+        const n = rows;
+        const m = cols;
+        const epsilon = new Decimal(1e-10);
+        const one = new Decimal(1);
+        const determined = [];
+        
+        // Check for inconsistencies first
+        for (let i = 0; i < n; i++) {
+          let allZero = true;
+          for (let j = 0; j < m; j++) {
+            const val = mat[i][j] instanceof Decimal ? mat[i][j] : new Decimal(mat[i][j]);
+            if (val.abs().greaterThan(epsilon)) {
+              allZero = false;
+              break;
+            }
+          }
+          const constVal = mat[i][m] instanceof Decimal ? mat[i][m] : new Decimal(mat[i][m]);
+          if (allZero && constVal.abs().greaterThan(epsilon)) {
+            showError('No solution: System is inconsistent');
+            return;
+          }
+        }
+        
+        // Check which variables are determined
+        // A variable x_j is determined when:
+        // 1. There's a row i where mat[i][j] = 1 (exactly 1)
+        // 2. All other entries in row i (except column j and the augmented vector) are 0
+        // 3. Then x_j = mat[i][m] (the augmented vector value in that row)
+        for (let j = 0; j < m; j++) {
+          let isDetermined = false;
+          let determinedValue = null;
+          let determinedRow = -1;
+          
+          // Check each row to see if it determines x_j
+          for (let i = 0; i < n; i++) {
+            const pivotVal = mat[i][j] instanceof Decimal ? mat[i][j] : new Decimal(mat[i][j]);
+            
+            // Check if this position has exactly 1 (not approximately)
+            if (pivotVal.equals(one)) {
+              // Check if all other entries in this row (except column j and augmented vector) are 0
+              let rowIsClear = true;
+              for (let k = 0; k < m; k++) {
+                if (k !== j) {
+                  const val = mat[i][k] instanceof Decimal ? mat[i][k] : new Decimal(mat[i][k]);
+                  if (val.abs().greaterThan(epsilon)) {
+                    rowIsClear = false;
+                    break;
+                  }
+                }
+              }
+              
+              if (rowIsClear) {
+                // Variable x_j is determined by row i!
+                // x_j = the augmented vector value in that row
+                isDetermined = true;
+                determinedValue = mat[i][m] instanceof Decimal ? mat[i][m] : new Decimal(mat[i][m]);
+                determinedRow = i;
+                break;
+              }
+            }
+          }
+          
+          if (isDetermined) {
+            determined.push({ index: j, value: determinedValue, row: determinedRow });
+          }
+        }
+        
+        displaySolution(determined);
+      }
+
+      function displaySolution(determinedVars) {
+        const solutionDiv = document.getElementById('solution');
+        
+        if (determinedVars.length === 0) {
+          solutionDiv.style.display = 'none';
+          return;
+        }
+        
+        solutionDiv.innerHTML = '<h3>Solution</h3><div class="solution-values"></div>';
+        const valuesDiv = solutionDiv.querySelector('.solution-values');
+        
+        // Sort by index to display in order
+        determinedVars.sort((a, b) => a.index - b.index);
+        
+        determinedVars.forEach(({ index, value }) => {
+          const item = document.createElement('div');
+          item.className = 'solution-item';
+          const dec = value instanceof Decimal ? value : new Decimal(value);
+          const formattedValue = formatNumberForDisplay(dec);
+          item.innerHTML = `x${toSubscript(index + 1)} = ${formattedValue}`;
+          valuesDiv.appendChild(item);
+        });
+        
+        solutionDiv.style.display = 'block';
+      }
+
+      function showError(message) {
+        const errorDiv = document.getElementById('error');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+      }
+
+      // Initialize matrix on load
+      updateMatrix();
+      
+      // Initialize fractions mode button text (fractions mode is default)
+      updateFractionsButton();
+      
+      // Preset with random matrix instead of zeros
+      setTimeout(() => {
+        generateRandomMatrix();
+        // After initialization is complete, allow solution checks
+        setTimeout(() => {
+          isInitializing = false;
+        }, 200);
+      }, 100);
+
+      // Auto-update matrix when rows/cols change
+      document.getElementById('rows').addEventListener('change', updateMatrix);
+      document.getElementById('rows').addEventListener('input', updateMatrix);
+      document.getElementById('cols').addEventListener('change', updateMatrix);
+      document.getElementById('cols').addEventListener('input', updateMatrix);
+
+      // Slider event listener with debouncing for smooth scrolling
+      const slider = document.getElementById('step-slider');
+      let sliderTimeout = null;
+      let isSliderTracking = false;
+      const sliderTouchOptions = { passive: false };
+
+      function setSliderValueFromClientX(clientX) {
+        if (!slider) return;
+        const rect = slider.getBoundingClientRect();
+        if (!rect || rect.width === 0) {
+          return;
+        }
+        let ratio = (clientX - rect.left) / rect.width;
+        ratio = Math.min(1, Math.max(0, ratio));
+        const min = slider.min !== undefined ? Number(slider.min) : 0;
+        const max = slider.max !== undefined ? Number(slider.max) : 0;
+        const step = slider.step !== undefined ? Number(slider.step) : 1;
+        if (Number.isNaN(min) || Number.isNaN(max) || Number.isNaN(step)) {
+          return;
+        }
+        let value = min + ratio * (max - min);
+        if (step > 0) {
+          value = Math.round((value - min) / step) * step + min;
+        }
+        value = Math.min(max, Math.max(min, value));
+        if (Number(slider.value) !== value) {
+          slider.value = String(value);
+          slider.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+
+      function handleSliderMouseMove(event) {
+        if (!isSliderTracking) return;
+        setSliderValueFromClientX(event.clientX);
+      }
+
+      function handleSliderTouchMove(event) {
+        if (!isSliderTracking) return;
+        if (event.cancelable) {
+          event.preventDefault();
+        }
+        if (event.touches && event.touches.length > 0) {
+          setSliderValueFromClientX(event.touches[0].clientX);
+        }
+      }
+
+      function startSliderTracking(event) {
+        if (!slider) return;
+        if (isSliderTracking) {
+          if (event.type === 'mousedown' && event.cancelable) {
+            event.preventDefault();
+          } else if (event.type.startsWith('touch') && event.cancelable) {
+            event.preventDefault();
+          }
+          setSliderValueFromClientX(event.type.startsWith('touch') && event.touches && event.touches.length > 0 ? event.touches[0].clientX : event.clientX);
+          return;
+        }
+        isSliderTracking = true;
+        if (event.cancelable) {
+          event.preventDefault();
+        }
+        const clientX = event.type.startsWith('touch') && event.touches && event.touches.length > 0 ? event.touches[0].clientX : event.clientX;
+        setSliderValueFromClientX(clientX);
+        document.addEventListener('mousemove', handleSliderMouseMove);
+        document.addEventListener('touchmove', handleSliderTouchMove, sliderTouchOptions);
+        slider.focus();
+      }
+
+      function stopSliderTracking() {
+        if (!isSliderTracking) return;
+        isSliderTracking = false;
+        document.removeEventListener('mousemove', handleSliderMouseMove);
+        document.removeEventListener('touchmove', handleSliderTouchMove, sliderTouchOptions);
+      }
+
+      if (slider) {
+        slider.addEventListener('input', function() {
+          const targetStep = parseInt(this.value);
+          // Clear any pending updates
+          if (sliderTimeout) {
+            clearTimeout(sliderTimeout);
+          }
+          // Update immediately for responsiveness
+          goToStep(targetStep);
+        });
+        slider.addEventListener('mousedown', startSliderTracking);
+        slider.addEventListener('touchstart', startSliderTracking, sliderTouchOptions);
+      }
+
+      document.addEventListener('mousedown', function(event) {
+        if (!isSliderTracking) return;
+        if (!slider) {
+          stopSliderTracking();
+          return;
+        }
+        if (event.target === slider || slider.contains(event.target)) {
+          return;
+        }
+        stopSliderTracking();
+      });
+
+      document.addEventListener('touchstart', function(event) {
+        if (!isSliderTracking) return;
+        if (!slider) {
+          stopSliderTracking();
+          return;
+        }
+        if (event.target === slider || slider.contains(event.target)) {
+          return;
+        }
+        stopSliderTracking();
+      }, { passive: true });
+
+      document.addEventListener('keydown', function(event) {
+        if (isSliderTracking && event.key === 'Escape') {
+          stopSliderTracking();
+        }
+      });
+
+      // Validate and convert input when user leaves the cell (blur event)
+      document.addEventListener('blur', function(e) {
+        if (e.target && e.target.classList.contains('matrix-cell')) {
+          const valueStr = e.target.value.trim();
+          let dec;
+          let needsConversion = false;
+          
+          if (valueStr === '') {
+            dec = new Decimal(0);
+            e.target.dataset.fullPrecision = '0';
+            e.target.value = '';
+            return;
+          }
+          
+          try {
+            const hasSlash = valueStr.includes('/');
+            const hasDecimal = valueStr.includes('.');
+            
+            // Check if input format matches current mode
+            if (fractionsMode && hasDecimal && !hasSlash) {
+              // Decimal in fraction mode - auto-convert
+              dec = new Decimal(valueStr);
+              needsConversion = true;
+            } else if (!fractionsMode && hasSlash) {
+              // Fraction in decimal mode - auto-convert
+              const parts = valueStr.split('/');
+              if (parts.length === 2) {
+                const num = new Decimal(parts[0].trim());
+                const den = new Decimal(parts[1].trim());
+                if (den.isZero()) {
+                  dec = new Decimal(0);
+                } else {
+                  dec = num.dividedBy(den);
+                }
+                needsConversion = true;
+              } else {
+                dec = new Decimal(valueStr);
+              }
+            } else if (hasSlash) {
+              // Fraction input - parse it
+              const parts = valueStr.split('/');
+              if (parts.length === 2) {
+                const num = new Decimal(parts[0].trim());
+                const den = new Decimal(parts[1].trim());
+                if (den.isZero()) {
+                  dec = new Decimal(0);
+                } else {
+                  dec = num.dividedBy(den);
+                }
+              } else {
+                dec = new Decimal(valueStr);
+              }
+            } else {
+              // Decimal input - parse it
+              dec = new Decimal(valueStr);
+            }
+            
+            // Store the full-precision Decimal value
+            e.target.dataset.fullPrecision = dec.toString();
+            
+            // Update display if conversion was needed
+            if (needsConversion) {
+              e.target.value = formatNumberForDisplay(dec);
+            }
+            
+            // User manually changed a value
+            if (!isStepping) {
+              matrixChanged = true;
+              // Reset slider and state
+              originalMatrix = getMatrixFromInputs().map(row => row.map(val => val instanceof Decimal ? val : new Decimal(val)));
+              stepHistory = [];
+              precalculatedSteps = [];
+              stepHistory[0] = {
+                matrix: originalMatrix.map(row => row.map(val => val instanceof Decimal ? val : new Decimal(val))),
+                stepState: JSON.parse(JSON.stringify(stepState))
+              };
+              stepState = {
+                currentPivot: 0,
+                phase: 'normalize',
+                pivotRow: -1,
+                workingRow: -1,
+                currentStep: 0,
+                maxSteps: 0
+              };
+              clearHighlights();
+              document.getElementById('operation-display').textContent = '';
+              // Force slider to 0
+              const slider = document.getElementById('step-slider');
+              if (slider) {
+                slider.value = 0;
+              }
+              updateSlider();
+              // Pre-calculate steps for smooth slider
+              setTimeout(() => precalculateAllSteps(), 100);
+            }
+          } catch (err) {
+            // If parsing fails, restore previous value
+            console.error('Error parsing value:', valueStr, err);
+            const prevValue = e.target.dataset.fullPrecision;
+            if (prevValue) {
+              const prevDec = new Decimal(prevValue);
+              e.target.value = formatNumberForDisplay(prevDec);
+            } else {
+              e.target.value = '';
+              e.target.dataset.fullPrecision = '0';
+            }
+          }
+        }
+      }, true); // Use capture phase to ensure we catch the event
+      
+      // Also handle input events for storing full precision (but don't validate/convert yet)
+      document.addEventListener('input', function(e) {
+        if (e.target && e.target.classList.contains('matrix-cell')) {
+          // Just store what they're typing for now, validation happens on blur
+          // This allows free typing without immediate conversion
+        }
+      });
+    </script>
+  </body>
+</html>
+

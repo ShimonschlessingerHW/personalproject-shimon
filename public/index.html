@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My Personal Site</title>
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --fg: #e6edf3;
+        --muted: #a0a6ad;
+        --accent: #6aa6ff;
+      }
+      html, body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        overflow: auto;
+      }
+      html { scroll-behavior: smooth; }
+      /* Canvas fills the screen */
+      #automaton {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        display: block;
+        background: radial-gradient(1200px 800px at 70% 20%, #19212b, transparent 60%),
+                    radial-gradient(900px 900px at 20% 80%, #101722, transparent 60%),
+                    var(--bg);
+      }
+      /* Overlay header content */
+      .overlay {
+        position: relative;
+        z-index: 2;
+        min-height: 50vh;
+        width: 100vw;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 96px 24px 48px;
+      }
+      .hero {
+        max-width: 900px;
+      }
+      .title {
+        margin: 0 0 12px 0;
+        font-size: clamp(28px, 6vw, 64px);
+        line-height: 1.05;
+        letter-spacing: 0.5px;
+      }
+      /* Top navigation */
+      .nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 12px 16px;
+        background: rgba(11, 15, 20, 0.55);
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        -webkit-backdrop-filter: saturate(140%) blur(8px);
+        backdrop-filter: saturate(140%) blur(8px);
+      }
+      .tab {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: var(--fg);
+        text-decoration: none;
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+      .tab:hover { background: rgba(255,255,255,0.06); }
+      .tab:active { background: rgba(255,255,255,0.12); }
+
+      /* Page sections */
+      main { position: relative; z-index: 2; }
+      section { padding: 72px 24px; max-width: 1000px; margin: 0 auto; }
+      section h2 { margin: 0 0 12px 0; font-size: 28px; }
+      section p { color: var(--muted); line-height: 1.6; }
+      /* Accessibility: reduce motion preference */
+      @media (prefers-reduced-motion: reduce) {
+        #automaton { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="automaton" aria-hidden="true"></canvas>
+    <nav class="nav">
+      <a class="tab" href="index.html">Home</a>
+      <a class="tab" href="projects.html">Projects</a>
+      <a class="tab" href="about.html">About Me</a>
+    </nav>
+    <div class="overlay" id="home">
+      <div class="hero">
+        <h1 class="title">Shimon Schlessinger</h1>
+      </div>
+    </div>
+
+
+    <script>
+      // Elementary Cellular Automaton: Rule 54
+      // Neighborhood mapping per Wolfram code (111..000 -> bits of 54 = 0b00110110)
+      // 111→0, 110→0, 101→1, 100→1, 011→0, 010→1, 001→1, 000→0
+      (function() {
+        const canvas = document.getElementById('automaton');
+        const ctx = canvas.getContext('2d', { alpha: true });
+
+        const ruleNumber = 54;
+        const ruleBits = ruleNumber.toString(2).padStart(8, '0');
+
+        let cellSize = 3; // pixels per cell (adjusted on resize for performance)
+        let cols = 0;
+        let rows = 0;
+        let current = [];
+        let yDraw = 0; // current y row to draw into
+        let animationFrameId = null;
+        let stepIntervalMs = 16; // ~60fps by default
+        let lastStep = 0;
+
+        function neighborhoodToIndex(a, b, c) {
+          // Convert 3-bit neighborhood to index 7..0 (111..000)
+          return (a << 2) | (b << 1) | c;
+        }
+
+        function nextCell(a, b, c) {
+          const idx = neighborhoodToIndex(a, b, c);
+          // Map 7..0 to bits[0..7] where bits[0] is MSB for 111
+          const bit = ruleBits[7 - idx];
+          return bit === '1' ? 1 : 0;
+        }
+
+        function randomizeSeed() {
+          current = new Array(cols).fill(0);
+          // Start with either a centered seed or a short random cluster for interest
+          if (Math.random() < 0.6) {
+            current[Math.floor(cols / 2)] = 1;
+          } else {
+            for (let i = Math.floor(cols / 2) - 2; i <= Math.floor(cols / 2) + 2; i++) {
+              if (i >= 0 && i < cols) current[i] = Math.random() < 0.5 ? 1 : 0;
+            }
+          }
+        }
+
+        function resize() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const w = Math.floor(window.innerWidth);
+          const h = Math.floor(window.innerHeight);
+
+          // Adjust cell size based on screen size for performance
+          if (w * h > 1800000) {
+            cellSize = 4;
+          } else if (w * h > 900000) {
+            cellSize = 3;
+          } else {
+            cellSize = 2;
+          }
+
+          cols = Math.max(20, Math.floor(w / cellSize));
+          rows = Math.max(20, Math.floor(h / cellSize));
+
+          canvas.width = cols * cellSize * dpr;
+          canvas.height = rows * cellSize * dpr;
+          canvas.style.width = (cols * cellSize) + 'px';
+          canvas.style.height = (rows * cellSize) + 'px';
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          yDraw = 0;
+          randomizeSeed();
+        }
+
+        function stepAndDraw(timestamp) {
+          if (!lastStep) lastStep = timestamp;
+          const elapsed = timestamp - lastStep;
+          if (elapsed >= stepIntervalMs) {
+            // Fade previous content slightly to create a trailing effect
+            ctx.fillStyle = 'rgba(11, 15, 20, 0.06)';
+            ctx.fillRect(0, 0, cols * cellSize, rows * cellSize);
+
+            // Draw current row
+            for (let x = 0; x < cols; x++) {
+              const alive = current[x];
+              if (alive) {
+                // Slight color variation for visual richness
+                const hue = 210 + Math.sin((x + yDraw) * 0.03) * 15;
+                const light = 70 + Math.sin((x - yDraw) * 0.02) * 10;
+                ctx.fillStyle = `hsl(${hue}deg 90% ${light}%)`;
+                ctx.fillRect(x * cellSize, yDraw * cellSize, cellSize, cellSize);
+              }
+            }
+
+            // Compute next row
+            const next = new Array(cols);
+            for (let x = 0; x < cols; x++) {
+              const left = x === 0 ? 0 : current[x - 1];
+              const mid = current[x];
+              const right = x === cols - 1 ? 0 : current[x + 1];
+              next[x] = nextCell(left, mid, right);
+            }
+            current = next;
+
+            // Advance draw row; wrap and reseed on wrap
+            yDraw++;
+            if (yDraw >= rows) {
+              yDraw = 0;
+              randomizeSeed();
+            }
+
+            lastStep = timestamp;
+          }
+
+          animationFrameId = window.requestAnimationFrame(stepAndDraw);
+        }
+
+        function start() {
+          cancel();
+          resize();
+          lastStep = 0;
+          animationFrameId = window.requestAnimationFrame(stepAndDraw);
+        }
+
+        function cancel() {
+          if (animationFrameId) {
+            window.cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+          }
+        }
+
+        // Adjust speed based on reduced motion preference
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        function handleMotionPreference() {
+          stepIntervalMs = prefersReducedMotion.matches ? 120 : 16; // ~8fps vs 60fps
+          start();
+        }
+        prefersReducedMotion.addEventListener('change', handleMotionPreference);
+
+        // Events
+        window.addEventListener('resize', start);
+        window.addEventListener('orientationchange', start);
+
+        // Kick off
+        handleMotionPreference();
+      })();
+    </script>
+  </body>
+</html>
